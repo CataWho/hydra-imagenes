@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Imágenes para Hydra</title>
+<style>
+  /* ===== COLORES =====
+     Se definen una sola vez aquí arriba y se reutilizan en toda la página.
+     Si quieres cambiar el aspecto, basta con modificar estos valores. */
+  :root {
+    --fondo: #111111;
+    --tarjeta: #1c1c1c;
+    --borde: #333333;
+    --texto: #eeeeee;
+    --suave: #9a9a9a;
+    --acento: #77ccff;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 24px 16px 80px;
+    background: var(--fondo);
+    color: var(--texto);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+
+  header, #mensaje, #galeria {
+    max-width: 1000px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  h1 { font-size: 1.5rem; margin: 0 0 8px; }
+  p { color: var(--suave); line-height: 1.5; margin: 0 0 12px; }
+  a { color: var(--acento); }
+
+  .controles {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 16px 0 24px;
+  }
+
+  select {
+    background: var(--tarjeta);
+    color: var(--texto);
+    border: 1px solid var(--borde);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font: inherit;
+  }
+
+  /* La galería es una grilla: se acomodan tantas columnas como entren,
+     cada una de al menos 160px de ancho. */
+  #galeria {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 16px;
+  }
+
+  /* Cada imagen es un botón, así también se puede usar con el teclado. */
+  .tarjeta {
+    background: var(--tarjeta);
+    border: 1px solid var(--borde);
+    border-radius: 8px;
+    padding: 0;
+    overflow: hidden;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+  }
+  .tarjeta:hover, .tarjeta:focus-visible {
+    border-color: var(--acento);
+    outline: none;
+  }
+  .tarjeta img, .tarjeta video {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    background: #000;
+  }
+  .tarjeta span {
+    display: block;
+    padding: 8px 10px;
+    font-size: 0.85rem;
+    overflow-wrap: anywhere;
+  }
+
+  /* Cartel que aparece abajo al copiar el código. */
+  #aviso {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: calc(100% - 32px);
+    background: var(--acento);
+    color: #000;
+    padding: 10px 16px;
+    border-radius: 6px;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+  }
+  #aviso.visible { opacity: 1; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Imágenes para Hydra</h1>
+  <p>Haz clic en una imagen para copiar el código y luego pégalo en <a href="https://hydra.ojack.xyz/" target="_blank">Hydra</a>.</p>
+  <p>Si acabas de subir una imagen, su link puede tardar uno o dos minutos en funcionar dentro de Hydra.</p>
+  <div class="controles">
+    <label for="fuente">Cargar en la fuente:</label>
+    <select id="fuente">
+      <option>s0</option>
+      <option>s1</option>
+      <option>s2</option>
+      <option>s3</option>
+    </select>
+  </div>
+</header>
+
+<p id="mensaje">Cargando imágenes…</p>
+<main id="galeria"></main>
+<div id="aviso" role="status"></div>
+
+<script>
+// ===== CONFIGURACIÓN =====
+// Estos tres datos indican dónde están tus imágenes en GitHub.
+const USUARIO = 'CataWho';            // tu nombre de usuario en GitHub
+const REPOSITORIO = 'hydra-imagenes'; // el nombre del repositorio
+const CARPETA = 'imagenes';           // la carpeta donde están las imágenes
+
+// Tipos de archivo que la galería reconoce.
+const EXTENSIONES_IMAGEN = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
+const EXTENSIONES_VIDEO = ['mp4', 'webm', 'mov'];
+
+// Referencias a las partes de la página que vamos a modificar.
+const galeria = document.getElementById('galeria');
+const mensaje = document.getElementById('mensaje');
+const selectorFuente = document.getElementById('fuente');
+const aviso = document.getElementById('aviso');
+
+
+// Devuelve la extensión de un nombre de archivo, en minúsculas.
+// Ejemplo: "Foto.PNG" -> "png"
+function extension(nombre) {
+  return nombre.split('.').pop().toLowerCase();
+}
+
+// Arma el link público de GitHub Pages para un archivo.
+// GitHub Pages siempre usa el nombre de usuario en minúsculas.
+function linkPublico(nombre) {
+  return 'https://' + USUARIO.toLowerCase() + '.github.io/' +
+         REPOSITORIO + '/' + CARPETA + '/' + encodeURIComponent(nombre);
+}
+
+// Arma las dos líneas de código para Hydra.
+// Si el archivo es un video usa initVideo; si es una imagen, initImage.
+function codigoHydra(nombre) {
+  const fuente = selectorFuente.value;
+  const esVideo = EXTENSIONES_VIDEO.includes(extension(nombre));
+  const funcion = esVideo ? 'initVideo' : 'initImage';
+  return fuente + '.' + funcion + '("' + linkPublico(nombre) + '")\n' +
+         'src(' + fuente + ').out(o0)';
+}
+
+// Muestra el cartel de abajo durante 2,5 segundos.
+let temporizador;
+function mostrarAviso(texto) {
+  aviso.textContent = texto;
+  aviso.classList.add('visible');
+  clearTimeout(temporizador);
+  temporizador = setTimeout(() => aviso.classList.remove('visible'), 2500);
+}
+
+// Copia un texto al portapapeles.
+// Primero intenta el método moderno; si el navegador no lo permite,
+// usa un método antiguo con un cuadro de texto invisible.
+async function copiar(texto) {
+  try {
+    await navigator.clipboard.writeText(texto);
+  } catch (error) {
+    const cuadro = document.createElement('textarea');
+    cuadro.value = texto;
+    document.body.appendChild(cuadro);
+    cuadro.select();
+    document.execCommand('copy');
+    cuadro.remove();
+  }
+  mostrarAviso('Código copiado. Pégalo en Hydra con Ctrl+V.');
+}
+
+// Crea la tarjeta (miniatura + nombre) de un archivo y la agrega a la galería.
+function agregarTarjeta(archivo) {
+  const tarjeta = document.createElement('button');
+  tarjeta.className = 'tarjeta';
+  tarjeta.title = 'Copiar código para Hydra';
+
+  let vista;
+  if (EXTENSIONES_VIDEO.includes(extension(archivo.name))) {
+    vista = document.createElement('video');
+    vista.muted = true;
+    vista.preload = 'metadata';
+  } else {
+    vista = document.createElement('img');
+    vista.alt = archivo.name;
+    vista.loading = 'lazy';
+  }
+  // La miniatura usa el link directo de GitHub, que funciona apenas subes
+  // el archivo (el de GitHub Pages puede tardar un par de minutos).
+  vista.src = archivo.download_url;
+
+  const nombre = document.createElement('span');
+  nombre.textContent = archivo.name;
+
+  tarjeta.append(vista, nombre);
+  tarjeta.addEventListener('click', () => copiar(codigoHydra(archivo.name)));
+  galeria.appendChild(tarjeta);
+}
+
+// Pide a GitHub la lista de archivos de la carpeta y arma la galería.
+async function cargarGaleria() {
+  const direccion = 'https://api.github.com/repos/' + USUARIO + '/' +
+                    REPOSITORIO + '/contents/' + CARPETA;
+
+  let respuesta;
+  try {
+    respuesta = await fetch(direccion);
+  } catch (error) {
+    mensaje.textContent = 'No se pudo conectar con GitHub. Revisa tu conexión a internet.';
+    return;
+  }
+
+  // Cada número de "status" es una respuesta distinta de GitHub.
+  if (respuesta.status === 404) {
+    mensaje.textContent = 'Todavía no existe la carpeta "' + CARPETA +
+      '" en el repositorio. Sube tus imágenes dentro de esa carpeta.';
+    return;
+  }
+  if (respuesta.status === 403 || respuesta.status === 429) {
+    mensaje.textContent = 'GitHub permite unas 60 consultas por hora. ' +
+      'Espera un rato y vuelve a cargar la página.';
+    return;
+  }
+  if (!respuesta.ok) {
+    mensaje.textContent = 'GitHub respondió con un error (' + respuesta.status + ').';
+    return;
+  }
+
+  const archivos = await respuesta.json();
+
+  // Nos quedamos solo con imágenes y videos.
+  const medios = archivos.filter(archivo => {
+    const ext = extension(archivo.name);
+    return archivo.type === 'file' &&
+      (EXTENSIONES_IMAGEN.includes(ext) || EXTENSIONES_VIDEO.includes(ext));
+  });
+
+  if (medios.length === 0) {
+    mensaje.textContent = 'La carpeta "' + CARPETA + '" no tiene imágenes todavía.';
+    return;
+  }
+
+  mensaje.textContent = medios.length === 1 ? '1 archivo.' : medios.length + ' archivos.';
+  medios.forEach(agregarTarjeta);
+}
+
+cargarGaleria();
+</script>
+</body>
+</html>
